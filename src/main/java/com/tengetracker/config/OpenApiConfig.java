@@ -20,28 +20,27 @@ public class OpenApiConfig {
                         .title("Tenge Tracker REST API")
                         .description("""
                                 ## Overview
-                                Tenge Tracker is a REST API for managing financial accounts and recording income, expenses, and transfers.
+                                Tenge Tracker is a REST API for managing accounts, categories, budgets and recording income, expenses, and transfers.
 
-                                ## How to use this documentation
-                                Expand an endpoint to see its purpose, parameters, request schema, sample payloads, response codes, and error examples. Use **Try it out** to send requests to the running application.
+                                ## Data model (relationships)
+                                - Account 1 -> N Transaction
+                                - Category 1 -> N Transaction
+                                - Category 1 -> N Budget
 
                                 ## Typical workflow
-                                1. Create an account with **POST /api/accounts**.
-                                2. Copy the returned `id` from the response.
-                                3. Record income with **POST /api/transactions** to add money, or record an expense to subtract money.
-                                4. Use **GET /api/accounts** to verify account balances.
+                                1. Create an account (**POST /api/accounts**) and a category (**POST /api/categories**).
+                                2. Record transactions (**POST /api/transactions**); balances update automatically.
+                                3. Inspect related data: **GET /api/accounts/{id}/transactions**, **GET /api/categories/{id}/transactions**, **GET /api/categories/{id}/budgets**.
+                                4. Track limits with **POST /api/budgets** and **GET /api/budgets/{id}/status**; see totals with **GET /api/summary**.
 
                                 ## Transaction rules
                                 - `INCOME` adds the amount to `accountId`.
                                 - `EXPENSE` subtracts the amount only when sufficient funds are available.
-                                - `TRANSFER` requires `targetAccountId` and moves the amount between the source and destination accounts.
-                                - Amounts must be positive; transaction dates use `YYYY-MM-DD`.
+                                - `TRANSFER` requires a different `targetAccountId` and moves the amount between accounts.
+                                - Amounts must be positive; dates use `YYYY-MM-DD`.
 
                                 ## Error responses
-                                Validation and business-rule errors return HTTP 400. Requests for missing resources return HTTP 404. Error responses include a timestamp and status plus an error message or field-level validation errors.
-
-                                ## Scope note
-                                Accounts support list, retrieve, create, update, and delete operations. Transactions currently support list and create operations.
+                                400 validation/business-rule errors, 404 missing resources, 409 conflicts (duplicate budget, deleting something still in use), 405 wrong method. Bodies contain a timestamp and status plus an `error` message or field-level `errors`.
                                 """)
                         .version("1.0.0")
                         .contact(new Contact().name("Tenge Tracker Project"))

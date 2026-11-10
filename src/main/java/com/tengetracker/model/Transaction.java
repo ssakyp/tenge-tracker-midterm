@@ -1,8 +1,10 @@
 package com.tengetracker.model;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Positive;
 import lombok.*;
 
@@ -39,6 +41,7 @@ public class Transaction {
 
     @Schema(description = "Transaction operation. INCOME increases the source balance; EXPENSE decreases it; TRANSFER moves funds to targetAccountId.", allowableValues = {"INCOME", "EXPENSE", "TRANSFER"}, example = "EXPENSE", requiredMode = Schema.RequiredMode.REQUIRED)
     @NotNull(message = "Transaction type is required")
+    @Pattern(regexp = "^(INCOME|EXPENSE|TRANSFER)$", flags = Pattern.Flag.CASE_INSENSITIVE, message = "Type must be INCOME, EXPENSE or TRANSFER")
     @Column(nullable = false)
     private String type; // INCOME, EXPENSE, TRANSFER
 
@@ -53,4 +56,20 @@ public class Transaction {
     @NotNull(message = "Date is required")
     @Column(nullable = false)
     private LocalDate date;
+
+    /** Many-to-one: many transactions belong to one source account (read-only mapping over account_id). */
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "account_id", insertable = false, updatable = false)
+    @JsonIgnore
+    @ToString.Exclude
+    @EqualsAndHashCode.Exclude
+    private Account account;
+
+    /** Many-to-one: many transactions can share one category (read-only mapping over category_id). */
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "category_id", insertable = false, updatable = false)
+    @JsonIgnore
+    @ToString.Exclude
+    @EqualsAndHashCode.Exclude
+    private Category category;
 }

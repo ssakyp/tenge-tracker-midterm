@@ -3,52 +3,82 @@ package com.tengetracker.controller;
 import com.tengetracker.model.Transaction;
 import com.tengetracker.service.TransactionService;
 import io.swagger.v3.oas.annotations.Operation;
-import io.swagger.v3.oas.annotations.media.Content;
-import io.swagger.v3.oas.annotations.media.ExampleObject;
-import io.swagger.v3.oas.annotations.media.Schema;
+import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.time.LocalDate;
 import java.util.List;
 
 @RestController
 @RequestMapping("/api/transactions")
 @RequiredArgsConstructor
-@Tag(name = "Transactions", description = "Record income, expenses, and transfers between accounts. Creating a transaction changes the associated account balance in the same database transaction. Currently this API supports listing and creating transactions only.")
+@Tag(name = "Transactions", description = "Record income, expenses, and transfers. Each transaction belongs to a source account (many-to-one) and optionally to a category (many-to-one). Creating, updating or deleting a transaction adjusts account balances in the same database transaction.")
 public class TransactionController {
 
     private final TransactionService transactionService;
 
     @GetMapping
-    @Operation(summary = "List all transactions", description = "Returns all transactions stored in the database. Each transaction includes account IDs, amount, type, date, and optional description/category/target account. Amounts must be positive. Dates use ISO format YYYY-MM-DD.")
+    @Operation(summary = "List transactions", description = "Newest first. Optional filters: startDate, endDate (YYYY-MM-DD, inclusive) and type (INCOME, EXPENSE, TRANSFER).")
     @ApiResponses({
-            @ApiResponse(responseCode = "200", description = "Transactions retrieved successfully", content = @Content(mediaType = "application/json", schema = @Schema(implementation = Transaction.class), examples = @ExampleObject(value = "[{\"id\":1,\"accountId\":1,\"categoryId\":null,\"amount\":5000.00,\"type\":\"INCOME\",\"targetAccountId\":null,\"description\":\"Salary\",\"date\":\"2026-10-01\"}]")))
+            @ApiResponse(responseCode = "200", description = "Transactions retrieved"),
+            @ApiResponse(responseCode = "400", description = "Invalid filter value")
     })
-    public List<Transaction> getAllTransactions() {
-        return transactionService.getAllTransactions();
+    public List<Transaction> getAllTransactions(
+            @Parameter(description = "Earliest date (inclusive)", example = "2026-10-01") @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
+            @Parameter(description = "Latest date (inclusive)", example = "2026-10-31") @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate,
+            @Parameter(description = "INCOME, EXPENSE or TRANSFER", example = "EXPENSE") @RequestParam(required = false) String type) {
+        return transactionService.getAllTransactions(startDate, endDate, type);
+    }
+
+    @GetMapping("/{id}")
+    @Operation(summary = "Get a transaction by ID")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Transaction found"),
+            @ApiResponse(responseCode = "404", description = "Transaction not found")
+    })
+    public Transaction getTransactionById(@Parameter(description = "Transaction ID", example = "1") @PathVariable Long id) {
+        return transactionService.getTransactionById(id);
     }
 
     @PostMapping
-    @Operation(summary = "Create a transaction", description = "Creates an INCOME, EXPENSE, or TRANSFER transaction and updates account balance(s). INCOME adds the amount to accountId. EXPENSE subtracts it if sufficient funds exist. TRANSFER requires targetAccountId, subtracts from accountId, and adds to targetAccountId. The amount must be greater than zero, accountId/amount/type/date are required, and type is case-insensitive. The transaction and balance updates are committed together.")
+    @Operation(summary = "Create a transaction", description = "INCOME adds amount to accountId. EXPENSE subtracts it if funds suffice. TRANSFER (requires targetAccountId, different from accountId, no category) moves funds. Required: accountId, amount (> 0), type, date. If categoryId is given the category must exist and its type must match the transaction type.")
     @ApiResponses({
-            @ApiResponse(responseCode = "201", description = "Transaction created and account balance updated", content = @Content(schema = @Schema(implementation = Transaction.class), examples = @ExampleObject(value = "{\"id\":1,\"accountId\":1,\"categoryId\":null,\"amount\":5000.00,\"type\":\"INCOME\",\"targetAccountId\":null,\"description\":\"Salary\",\"date\":\"2026-10-01\"}"))),
-            @ApiResponse(responseCode = "400", description = "Invalid transaction, unsupported type, missing transfer target, or insufficient balance", content = @Content(mediaType = "application/json", examples = @ExampleObject(value = "{\"timestamp\":\"2026-01-01T12:00:00\",\"status\":400,\"error\":\"Insufficient balance in account\"}"))),
-            @ApiResponse(responseCode = "404", description = "Source account or transfer target account was not found", content = @Content(mediaType = "application/json", examples = @ExampleObject(value = "{\"timestamp\":\"2026-01-01T12:00:00\",\"status\":404,\"error\":\"Account not found: 42\"}")))
+            @ApiResponse(responseCode = "201", description = "Transaction created and balances updated"),
+            @ApiResponse(responseCode = "400", description = "Validation error, insufficient balance, missing transfer target, category type mismatch"),
+            @ApiResponse(responseCode = "404", description = "Account, target account or category not found")
     })
-    public ResponseEntity<Transaction> createTransaction(
-            @io.swagger.v3.oas.annotations.parameters.RequestBody(description = "Transaction details. Use INCOME, EXPENSE, or TRANSFER. For a transfer, supply targetAccountId. The date must be YYYY-MM-DD.", required = true,
-                    content = @Content(schema = @Schema(implementation = Transaction.class), examples = {
-                            @ExampleObject(name = "Income", summary = "Add income to an account", value = "{\"accountId\":1,\"amount\":5000.00,\"type\":\"INCOME\",\"description\":\"Salary\",\"date\":\"2026-10-01\"}"),
-                            @ExampleObject(name = "Expense", summary = "Spend from an account", value = "{\"accountId\":1,\"amount\":1200.00,\"type\":\"EXPENSE\",\"categoryId\":2,\"description\":\"Groceries\",\"date\":\"2026-10-02\"}"),
-                            @ExampleObject(name = "Transfer", summary = "Move money between accounts", value = "{\"accountId\":1,\"targetAccountId\":2,\"amount\":3000.00,\"type\":\"TRANSFER\",\"description\":\"Move to savings\",\"date\":\"2026-10-03\"}")
-                    }))
-            @Valid @RequestBody Transaction transaction) {
+    public ResponseEntity<Transaction> createTransaction(@Valid @RequestBody Transaction transaction) {
         return new ResponseEntity<>(transactionService.createTransaction(transaction), HttpStatus.CREATED);
+    }
+
+    @PutMapping("/{id}")
+    @Operation(summary = "Update a transaction", description = "Replaces all fields. The balance effect of the old transaction is reversed and the new one applied atomically; if the new one fails (e.g. insufficient funds) nothing changes.")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Transaction updated"),
+            @ApiResponse(responseCode = "400", description = "Validation or business-rule error"),
+            @ApiResponse(responseCode = "404", description = "Transaction, account or category not found")
+    })
+    public Transaction updateTransaction(@Parameter(description = "Transaction ID", example = "1") @PathVariable Long id,
+                                         @Valid @RequestBody Transaction transaction) {
+        return transactionService.updateTransaction(id, transaction);
+    }
+
+    @DeleteMapping("/{id}")
+    @Operation(summary = "Delete a transaction", description = "Deletes the transaction and reverses its effect on account balance(s).")
+    @ApiResponses({
+            @ApiResponse(responseCode = "204", description = "Transaction deleted"),
+            @ApiResponse(responseCode = "404", description = "Transaction not found")
+    })
+    public ResponseEntity<Void> deleteTransaction(@Parameter(description = "Transaction ID", example = "1") @PathVariable Long id) {
+        transactionService.deleteTransaction(id);
+        return ResponseEntity.noContent().build();
     }
 }

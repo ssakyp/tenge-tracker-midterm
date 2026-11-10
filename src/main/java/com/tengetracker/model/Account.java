@@ -1,11 +1,17 @@
 package com.tengetracker.model;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Pattern;
+import jakarta.validation.constraints.PositiveOrZero;
 import lombok.*;
 
 import java.math.BigDecimal;
+import java.util.ArrayList;
+import java.util.List;
 
 @Entity
 @Table(name = "accounts")
@@ -25,13 +31,24 @@ public class Account {
     @Column(nullable = false)
     private String name;
 
-    @Schema(description = "Current account balance. May be supplied on account creation; account update does not change this value.", example = "25000.00", minimum = "0")
+    @Schema(description = "Current account balance. May be supplied on account creation; account update does not change this value. Must be zero or positive.", example = "25000.00", minimum = "0")
+    @NotNull(message = "Balance must not be null")
+    @PositiveOrZero(message = "Balance must be zero or positive")
     @Column(nullable = false, precision = 15, scale = 2)
     @Builder.Default
     private BigDecimal balance = BigDecimal.ZERO;
 
     @Schema(description = "Three-letter currency code. Defaults to KZT when omitted during creation.", example = "KZT", minLength = 3, maxLength = 3)
+    @Pattern(regexp = "^[A-Za-z]{3}$", message = "Currency must be a 3-letter code")
     @Column(length = 3)
     @Builder.Default
     private String currency = "KZT";
+
+    /** One-to-many: one account owns many transactions (inverse side, not serialized). */
+    @OneToMany(mappedBy = "account")
+    @JsonIgnore
+    @ToString.Exclude
+    @EqualsAndHashCode.Exclude
+    @Builder.Default
+    private List<Transaction> transactions = new ArrayList<>();
 }

@@ -1,7 +1,9 @@
 package com.tengetracker.controller;
 
 import com.tengetracker.model.Account;
+import com.tengetracker.model.Transaction;
 import com.tengetracker.service.AccountService;
+import com.tengetracker.service.TransactionService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.media.Content;
@@ -25,6 +27,7 @@ import java.util.List;
 public class AccountController {
 
     private final AccountService accountService;
+    private final TransactionService transactionService;
 
     @GetMapping
     @Operation(summary = "List all accounts", description = "Returns every account currently stored in the database. Use this to find account IDs before creating transactions or retrieving/updating a specific account. An empty database returns an empty JSON array.")
@@ -76,13 +79,25 @@ public class AccountController {
     }
 
     @DeleteMapping("/{id}")
-    @Operation(summary = "Delete an account", description = "Permanently deletes the account with the supplied ID. A successful deletion returns HTTP 204 with no response body. If the ID does not exist, the API returns 404.")
+    @Operation(summary = "Delete an account", description = "Permanently deletes the account with the supplied ID. A successful deletion returns HTTP 204 with no response body. If the ID does not exist, the API returns 404. If the account still has transactions (as source or transfer target), the API returns 409.")
     @ApiResponses({
             @ApiResponse(responseCode = "204", description = "Account deleted successfully; response body is empty"),
             @ApiResponse(responseCode = "404", description = "Account ID not found", content = @Content(mediaType = "application/json", examples = @ExampleObject(value = "{\"timestamp\":\"2026-01-01T12:00:00\",\"status\":404,\"error\":\"Account not found with id: 42\"}")))
+    ,
+            @ApiResponse(responseCode = "409", description = "Account still has transactions and cannot be deleted", content = @Content(mediaType = "application/json"))
     })
     public ResponseEntity<Void> deleteAccount(@Parameter(description = "ID of the account to delete", example = "1", required = true) @PathVariable Long id) {
         accountService.deleteAccount(id);
         return ResponseEntity.noContent().build();
+    }
+
+    @GetMapping("/{id}/transactions")
+    @Operation(summary = "List an account's transactions", description = "Returns all transactions where the account is the source or the transfer target, newest first (one-to-many: account -> transactions). Returns 404 if the account does not exist.")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Transactions retrieved (empty array if none)"),
+            @ApiResponse(responseCode = "404", description = "Account ID not found", content = @Content(mediaType = "application/json"))
+    })
+    public List<Transaction> getAccountTransactions(@Parameter(description = "ID of the account", example = "1", required = true) @PathVariable Long id) {
+        return transactionService.getTransactionsByAccount(id);
     }
 }

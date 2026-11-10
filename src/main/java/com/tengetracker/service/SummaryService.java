@@ -1,6 +1,7 @@
 package com.tengetracker.service;
 
 import com.tengetracker.dto.SummaryResponse;
+import com.tengetracker.exception.BadRequestException;
 import com.tengetracker.model.Account;
 import com.tengetracker.repository.AccountRepository;
 import com.tengetracker.repository.TransactionRepository;
@@ -18,6 +19,9 @@ public class SummaryService {
     private final AccountRepository accountRepository;
 
     public SummaryResponse getSummary(LocalDate startDate, LocalDate endDate) {
+        if (startDate.isAfter(endDate)) {
+            throw new BadRequestException("startDate must not be after endDate");
+        }
         BigDecimal totalIncome = transactionRepository.sumByTypeAndDateBetween("INCOME", startDate, endDate);
         BigDecimal totalExpenses = transactionRepository.sumByTypeAndDateBetween("EXPENSE", startDate, endDate);
 

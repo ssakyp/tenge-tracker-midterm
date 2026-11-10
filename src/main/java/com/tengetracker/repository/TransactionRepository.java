@@ -9,11 +9,18 @@ import org.springframework.stereotype.Repository;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;
-import java.util.Optional;
 
 @Repository
 public interface TransactionRepository extends JpaRepository<Transaction, Long> {
     List<Transaction> findByDateBetween(LocalDate startDate, LocalDate endDate);
+
+    List<Transaction> findByAccountIdOrTargetAccountIdOrderByDateDescIdDesc(Long accountId, Long targetAccountId);
+
+    List<Transaction> findByCategoryIdOrderByDateDescIdDesc(Long categoryId);
+
+    boolean existsByAccountIdOrTargetAccountId(Long accountId, Long targetAccountId);
+
+    boolean existsByCategoryId(Long categoryId);
 
     @Query("SELECT SUM(t.amount) FROM Transaction t WHERE t.type = :type AND t.date BETWEEN :startDate AND :endDate")
     BigDecimal sumByTypeAndDateBetween(@Param("type") String type,

@@ -1,9 +1,13 @@
 package com.tengetracker.model;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Pattern;
 import lombok.*;
+
+import java.util.ArrayList;
+import java.util.List;
 
 @Entity
 @Table(name = "categories")
@@ -25,4 +29,20 @@ public class Category {
     @Pattern(regexp = "^(INCOME|EXPENSE)$", message = "Type must be INCOME or EXPENSE")
     @Column(nullable = false)
     private String type;
+
+    /** One-to-many: one category groups many transactions (inverse side, not serialized). */
+    @OneToMany(mappedBy = "category")
+    @JsonIgnore
+    @ToString.Exclude
+    @EqualsAndHashCode.Exclude
+    @Builder.Default
+    private List<Transaction> transactions = new ArrayList<>();
+
+    /** One-to-many: one category can have many monthly budgets (inverse side, not serialized). */
+    @OneToMany(mappedBy = "category")
+    @JsonIgnore
+    @ToString.Exclude
+    @EqualsAndHashCode.Exclude
+    @Builder.Default
+    private List<Budget> budgets = new ArrayList<>();
 }
