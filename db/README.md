@@ -1,5 +1,16 @@
 # Database initialization
 
-`init/01-seed.sql` is mounted into PostgreSQL's `/docker-entrypoint-initdb.d/` directory by Compose. PostgreSQL executes it only when the `postgres_data` named volume is initialized for the first time. It creates the schema and seeds 5 accounts, 19 transactions, 15 categories, and 5 budgets.
+`init/01-seed.sql` is mounted into PostgreSQL's `/docker-entrypoint-initdb.d/` by Compose and runs only when the `postgres_data` volume is empty. It creates the schema (with foreign keys, the one-to-one unique key and the many-to-many join table) and seeds:
 
-To re-run it during local development, remove the volume with `docker compose down -v` and start again with `docker compose up --build`. WARNING: removing the volume permanently deletes all database data in it.
+| Table | Rows |
+|---|---|
+| users | 10 (password `password123` for all, stored as BCrypt hash) |
+| user_profiles | 10 |
+| accounts | 16 (ids 1–5 belong to `demo`) |
+| categories | 15 |
+| tags | 10 |
+| transactions | 30 |
+| transaction_tags | 21 |
+| budgets | 12 (current month) |
+
+To re-run it: `docker compose down -v` then `docker compose up --build`. WARNING: `-v` permanently deletes all database data.

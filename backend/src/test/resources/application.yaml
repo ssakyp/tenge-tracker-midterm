@@ -1,0 +1,20 @@
+spring:
+  datasource:
+    url: jdbc:h2:mem:tenge;MODE=PostgreSQL;DB_CLOSE_DELAY=-1;NON_KEYWORDS=DATE,MONTH,YEAR,USER,VALUE
+    username: sa
+    password:
+    driver-class-name: org.h2.Driver
+  jpa:
+    hibernate:
+      ddl-auto: create-drop
+    open-in-view: true
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.H2Dialect
+
+app:
+  jwt:
+    secret: test-secret-test-secret-test-secret-123456
+    expiration-minutes: 60
+  cors:
+    allowed-origins: http://localhost:5173
